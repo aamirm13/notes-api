@@ -3,7 +3,7 @@ import User from "../models/User.js";
 
 const authMiddleware = async (req, res, next) => {
   try {
-    // 🔥 Get token from cookies instead of headers
+    // Get token from cookies instead of headers
     const token = req.cookies.token;
 
     // No token
@@ -15,7 +15,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, "your_jwt_secret");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Attach user to request (without password)
     req.user = await User.findById(decoded.id).select("-password");
