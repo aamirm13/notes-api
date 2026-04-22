@@ -39,6 +39,11 @@ export const registerUser = async (req, res) => {
   }
 };
 
+export const logout = (req, res) => {
+  res.clearCookie("token");
+  res.status(200).json({ message: "Logged out successfully" });
+};
+
 // POST /auth/login
 export const loginUser = async (req, res) => {
   try {
