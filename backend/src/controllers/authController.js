@@ -78,7 +78,7 @@ export const loginUser = async (req, res) => {
       .cookie("token", token, {
         httpOnly: true,
         secure: false, // set to true in production (HTTPS)
-        sameSite: "strict",
+        sameSite: "lax",
       })
       .status(200)
       .json({

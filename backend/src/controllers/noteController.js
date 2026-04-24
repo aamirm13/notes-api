@@ -36,11 +36,8 @@ export const createNote = async (req, res) => {
   try {
     const { title, content, tags, metadata } = req.body;
 
-    const note = await Note.create({
-      title,
-      content,
-      tags,
-      metadata,
+        const note = await Note.create({
+      ...req.body,
       user: req.user.id,
     });
 

@@ -3,6 +3,8 @@ import api from "../services/api";
 import { useNavigate } from "react-router-dom";
 
 function Dashboard() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [formError, setFormError] = useState("");
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -11,6 +13,7 @@ function Dashboard() {
   title: "",
   content: "",
   priority: "low",
+  date: "",
   });
 
   const navigate = useNavigate();
@@ -21,7 +24,7 @@ function Dashboard() {
       setNotes(res.data.data);
     } catch (err) {
       console.error(err);
-      // If unauthorized → go back to login
+      // If unauthorized, go back to login
       navigate("/");
     } finally {
       setLoading(false);
@@ -47,24 +50,42 @@ function Dashboard() {
 
 
 const handleCreateNote = async () => {
+  setFormError("");
+
+  // Frontend validation
+  if (newNote.title.length > 100) {
+    setFormError("Title cannot exceed 100 characters");
+    return;
+  }
+
+  if (newNote.content.length === 0) {
+    setFormError("Content is required");
+    return;
+  }
+
   try {
     await api.post("/notes", newNote);
 
     setShowModal(false);
 
-    // reset form
     setNewNote({
       title: "",
       content: "",
       priority: "low",
+      date: "",
     });
 
-    // refresh notes
     fetchNotes();
   } catch (err) {
-    console.error(err);
+    console.error("FULL ERROR:", err.response?.data || err);
+
+    // Backend fallback error
+    setFormError(
+      err.response?.data?.error || "Failed to create note"
+    );
   }
 };
+
   return (
     <div className="min-h-screen rainbow-bg relative overflow-hidden">
       {/* NAVBAR */}
@@ -95,6 +116,16 @@ const handleCreateNote = async () => {
             + New Note
           </button>
         </div>
+        {/* SEARCH BAR */}
+<div className="mb-6">
+  <input
+    type="text"
+    placeholder="Search notes..."
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    className="w-full px-4 py-2 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40"
+  />
+</div>
 
         {/* LOADING */}
         {loading ? (
@@ -137,14 +168,20 @@ const handleCreateNote = async () => {
       <h2 className="text-xl font-semibold">Create Note</h2>
 
       <input
-        type="text"
-        placeholder="Title"
-        value={newNote.title}
-        onChange={(e) =>
-          setNewNote({ ...newNote, title: e.target.value })
-        }
-        className="px-3 py-2 rounded-lg bg-white/30 border border-white/30 focus:outline-none"
-      />
+  type="text"
+  placeholder="Title"
+  value={newNote.title}
+  onChange={(e) =>
+    setNewNote({ ...newNote, title: e.target.value })
+  }
+  className={`px-3 py-2 rounded-lg bg-white/30 border ${
+    newNote.title.length > 100 ? "border-red-400" : "border-white/30"
+  } focus:outline-none`}
+/>
+
+<p className="text-xs text-white/60 text-right">
+  {newNote.title.length}/100
+</p>
 
       <textarea
         placeholder="Write your note..."
@@ -154,7 +191,15 @@ const handleCreateNote = async () => {
         }
         className="px-3 py-2 rounded-lg bg-white/30 border border-white/30 focus:outline-none"
       />
-
+      {/* date */}
+      <input
+        type="datetime-local"
+       value={newNote.date}
+       onChange={(e) =>
+          setNewNote({ ...newNote, date: e.target.value })
+       }
+        className="px-3 py-2 rounded-lg bg-white/30 border border-white/30 focus:outline-none text-black"
+      />
       {/* priority */}
       <select
         value={newNote.priority}
@@ -168,6 +213,12 @@ const handleCreateNote = async () => {
         <option value="high">High</option>
       </select>
 
+
+      {formError && (
+        <p className="text-red-300 text-sm text-center">
+          {formError}
+        </p>
+      )}
       {/* actions */}
       <div className="flex justify-end gap-2">
         <button

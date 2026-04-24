@@ -12,7 +12,6 @@ const noteSchema = new mongoose.Schema(
       type: String,
       required: [true, "Title is required"],
       trim: true,
-      minlength: [3, "Title must be at least 3 characters long"],
       maxlength: [100, "Title cannot exceed 100 characters"],
     },
 
@@ -20,7 +19,6 @@ const noteSchema = new mongoose.Schema(
       type: String,
       required: [true, "Content is required"],
       trim: true,
-      minlength: [5, "Content must be at least 5 characters long"],
     },
 
     tags: {
@@ -39,6 +37,15 @@ const noteSchema = new mongoose.Schema(
         type: Boolean,
         default: false,
       },
+    },
+      priority: {
+      type: String,
+      enum: ["low", "medium", "high"],
+      default: "low",
+    },
+
+    date: {
+      type: Date,
     },
   },
   {
