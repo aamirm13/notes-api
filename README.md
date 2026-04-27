@@ -1,4 +1,4 @@
-Notes App (Fullstack)
+# Notes App (Fullstack)
 
 A fullstack notes management application built with a React frontend and Node.js/Express backend, using MongoDB (via Mongoose) for data storage and JWT authentication for secure user access.
 
