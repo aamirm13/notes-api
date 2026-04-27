@@ -33,6 +33,29 @@ Built with React and styled using Tailwind CSS
 
 ## Project Structure:
 
+Project Structure
+
+``` 
+notes-app/
+│
+├── backend/
+│   ├── src/
+│   │   ├── controllers/     # Route logic (auth, notes)
+│   │   ├── middleware/      # Auth middleware (JWT protection)
+│   │   ├── models/          # Mongoose schemas
+│   │   ├── routes/          # API routes
+│   │   └── app.js           # Express app setup
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/      # UI components
+│   │   ├── hooks/           # Custom hooks
+│   │   ├── context/         # Global state (auth, etc.)
+│   │   └── styles/          # Styling
+│
+└── package.json             # Root scripts
+``` 
+
 ## Installation & Setup:
 
 1. Clone the repository
