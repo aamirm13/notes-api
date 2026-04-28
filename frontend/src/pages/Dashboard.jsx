@@ -7,6 +7,11 @@ function Dashboard() {
   const [formError, setFormError] = useState("");
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOverBin, setIsOverBin] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState(null);
+  const [dragging, setDragging] = useState(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
 
   const [showModal, setShowModal] = useState(false);
   const [newNote, setNewNote] = useState({
@@ -21,7 +26,13 @@ function Dashboard() {
   const fetchNotes = async () => {
     try {
       const res = await api.get("/notes");
-      setNotes(res.data.data);
+      setNotes(
+  res.data.data.map((note, i) => ({
+    ...note,
+    x: (i % 3) * 270,
+    y: Math.floor(i / 3) * 180,
+  }))
+);
     } catch (err) {
       console.error(err);
       // If unauthorized, go back to login
@@ -34,6 +45,100 @@ function Dashboard() {
   useEffect(() => {
     fetchNotes();
   }, []);
+
+  useEffect(() => {
+  const handleMove = (e) => {
+  if (!dragging) return;
+
+  const searchEl = document.getElementById("search-bar-container");
+  const notesArea = document.getElementById("notes-area");
+
+let MIN_Y = 0;
+
+if (searchEl && notesArea) {
+  const searchBottom = searchEl.getBoundingClientRect().bottom;
+  const containerTop = notesArea.getBoundingClientRect().top;
+
+  MIN_Y = searchBottom - containerTop + 10;
+}
+  const MAX_X = window.innerWidth - 260;
+  const MAX_Y = window.innerHeight - 120;
+
+  let newX = e.clientX - offset.x;
+  let newY = e.clientY - offset.y;
+
+  // Clamp boundaries
+  newX = Math.min(newX, MAX_X);
+  newY = Math.max(MIN_Y, Math.min(newY, MAX_Y));
+
+  setNotes((prev) =>
+    prev.map((note) =>
+      note._id === dragging
+        ? { ...note, x: newX, y: newY }
+        : note
+    )
+  );
+};
+
+  const handleUp = (e) => {
+  if (!dragging) return;
+
+  const bin = document.getElementById("trash-bin");
+  const rect = bin.getBoundingClientRect();
+
+  const isInsideBin =
+    e.clientX >= rect.left &&
+    e.clientX <= rect.right &&
+    e.clientY >= rect.top &&
+    e.clientY <= rect.bottom;
+
+  if (isInsideBin) {
+    const note = notes.find((n) => n._id === dragging);
+    setNoteToDelete(note);
+    setShowDeleteConfirm(true);
+  }
+  setNotes((prev) => {
+  const updated = [...prev];
+  const current = updated.find((n) => n._id === dragging);
+
+  if (!current) return prev;
+
+  const isColliding = (a, b) => {
+    return (
+      a.x < b.x + 250 &&
+      a.x + 250 > b.x &&
+      a.y < b.y + 150 &&
+      a.y + 150 > b.y
+    );
+  };
+
+  let collision = updated.find(
+    (n) => n._id !== dragging && isColliding(current, n)
+  );
+
+  if (collision) {
+    current.x += 260; // push right
+
+    // if off screen → move down
+    if (current.x > window.innerWidth - 260) {
+      current.x = 0;
+      current.y += 180;
+    }
+  }
+
+  return updated;
+});
+  setDragging(null);
+};
+
+  window.addEventListener("mousemove", handleMove);
+  window.addEventListener("mouseup", handleUp);
+
+  return () => {
+    window.removeEventListener("mousemove", handleMove);
+    window.removeEventListener("mouseup", handleUp);
+  };
+}, [dragging, offset]);
 
   const handleLogout = async () => {
   try {
@@ -86,11 +191,24 @@ const handleCreateNote = async () => {
   }
 };
 
+  const handleDeleteNote = async () => {
+  try {
+    await api.delete(`/notes/${noteToDelete._id}`);
+
+    setShowDeleteConfirm(false);
+    setNoteToDelete(null);
+
+    fetchNotes();
+  } catch (err) {
+    console.error(err);
+  }
+};
+
   return (
     <div className="min-h-screen rainbow-bg relative overflow-hidden">
       {/* NAVBAR */}
         <div className="relative z-10 bg-white/20 backdrop-blur-lg border-b border-white/20 px-6 py-4 flex justify-between items-center text-white">        <h1 className="text-xl font-semibold text-gray-800">
-          Notes Dashboard
+          Dashboard
         </h1>
 
         <button
@@ -106,7 +224,7 @@ const handleCreateNote = async () => {
         {/* HEADER */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold text-gray-800">
-            Your Notes
+            Notes
           </h2>
 
           <button
@@ -117,7 +235,7 @@ const handleCreateNote = async () => {
           </button>
         </div>
         {/* SEARCH BAR */}
-<div className="mb-6">
+<div id="search-bar-container" className="mb-6">
   <input
     type="text"
     placeholder="Search notes..."
@@ -135,21 +253,36 @@ const handleCreateNote = async () => {
             No notes yet. Create your first one!
           </p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {notes.map((note) => (
-              <div
-                key={note._id}
-                className="bg-white/20 backdrop-blur-lg border border-white/20 p-4 rounded-xl text-white hover:bg-white/30 transition"              >
-                <h3 className="font-semibold text-gray-800 mb-2">
-                  {note.title || "Untitled"}
-                </h3>
+          <div id="notes-area" className="relative w-full h-[600px]">
 
-                <p className="text-sm text-gray-600 line-clamp-3">
-                  {note.content}
-                </p>
-              </div>
-            ))}
-          </div>
+  {notes.map((note) => (
+    <div
+      key={note._id}
+      onMouseDown={(e) => {
+        setDragging(note._id);
+        setOffset({
+          x: e.clientX - note.x,
+          y: e.clientY - note.y,
+        });
+      }}
+      className="absolute bg-white/20 backdrop-blur-lg border border-white/20 p-4 rounded-xl text-white cursor-grab active:cursor-grabbing select-none"
+      style={{
+        left: note.x,
+        top: note.y,
+        width: "250px",
+      }}
+    >
+      <h3 className="font-semibold text-gray-800 mb-2">
+        {note.title || "Untitled"}
+      </h3>
+
+      <p className="text-sm text-gray-600">
+        {note.content}
+      </p>
+    </div>
+  ))}
+
+</div>
         )}
       </div>
 
@@ -238,6 +371,78 @@ const handleCreateNote = async () => {
     </div>
   </div>
 )}
+
+{/* ✅ ADD DELETE MODAL HERE */}
+{showDeleteConfirm && (
+  <div className="fixed inset-0 flex items-center justify-center z-40">
+
+    {/* overlay */}
+    <div
+      className="absolute inset-0 bg-black/50"
+      onClick={() => setShowDeleteConfirm(false)}
+    ></div>
+
+    {/* modal */}
+    <div className="relative z-50 bg-white/20 backdrop-blur-xl border border-white/30 p-8 rounded-2xl shadow-2xl text-white max-w-md w-full text-center">
+
+      <h2 className="text-xl font-semibold mb-4">
+        Delete Note?
+      </h2>
+
+      <p className="mb-6 text-white/80">
+        Do you really want to delete{" "}
+        <span className="font-semibold">
+          {noteToDelete?.title}
+        </span>
+        ?
+      </p>
+
+      <div className="flex justify-center gap-4">
+        <button
+          onClick={() => setShowDeleteConfirm(false)}
+          className="px-5 py-2 bg-gray-300 text-black rounded-lg"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={handleDeleteNote}
+          className="px-5 py-2 bg-red-500 rounded-lg"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+{/* BIN ICON */}
+<div
+  id="trash-bin"
+  onDragOver={(e) => {
+    e.preventDefault();
+    setIsOverBin(true);
+  }}
+  onDragLeave={() => setIsOverBin(false)}
+  onDrop={() => {
+    if (draggedNote) {
+      setNoteToDelete(draggedNote);
+      setShowDeleteConfirm(true);
+    }
+  }}
+  className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-30 flex items-center justify-center transition-all duration-300
+    ${isOverBin ? "scale-110" : "scale-100"}
+  `}
+>
+  <div className={`p-5 rounded-full backdrop-blur-xl border-2 
+  ${isOverBin 
+    ? "bg-red-600 border-red-800 animate-bounce shadow-lg shadow-red-500/50" 
+    : "bg-red-500/40 border-red-600 shadow-md shadow-red-500/30"}
+`}>
+    <span className="text-2xl">🗑</span>
+  </div>
+</div>
     </div>
   );
 }
