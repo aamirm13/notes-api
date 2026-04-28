@@ -12,6 +12,8 @@ function Dashboard() {
   const [noteToDelete, setNoteToDelete] = useState(null);
   const [dragging, setDragging] = useState(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [searchResults, setSearchResults] = useState([]);
+  const [highlightedNote, setHighlightedNote] = useState(null);
 
   const [showModal, setShowModal] = useState(false);
   const [newNote, setNewNote] = useState({
@@ -45,6 +47,20 @@ function Dashboard() {
   useEffect(() => {
     fetchNotes();
   }, []);
+
+  useEffect(() => {
+  if (!searchTerm.trim()) {
+    setSearchResults([]);
+    return;
+  }
+
+  const results = notes.filter((note) =>
+    note.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    note.content?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  setSearchResults(results);
+}, [searchTerm, notes]);
 
   useEffect(() => {
   const handleMove = (e) => {
@@ -204,6 +220,36 @@ const handleCreateNote = async () => {
   }
 };
 
+const handleSearchClick = (note) => {
+  const exists = notes.find((n) => n._id === note._id);
+
+  if (!exists) return;
+
+  // bring to center-ish
+  setNotes((prev) =>
+    prev.map((n) =>
+      n._id === note._id
+        ? {
+            ...n,
+            x: window.innerWidth / 2 - 150,
+            y: 250,
+          }
+        : n
+    )
+  );
+
+  // trigger jiggle
+  setHighlightedNote(note._id);
+
+  setTimeout(() => {
+    setHighlightedNote(null);
+  }, 600);
+
+  // clear search
+  setSearchTerm("");
+  setSearchResults([]);
+};
+
   return (
     <div className="min-h-screen rainbow-bg relative overflow-hidden">
       {/* NAVBAR */}
@@ -235,7 +281,7 @@ const handleCreateNote = async () => {
           </button>
         </div>
         {/* SEARCH BAR */}
-<div id="search-bar-container" className="mb-6">
+<div id="search-bar-container" className="mb-6 relative">
   <input
     type="text"
     placeholder="Search notes..."
@@ -243,6 +289,25 @@ const handleCreateNote = async () => {
     onChange={(e) => setSearchTerm(e.target.value)}
     className="w-full px-4 py-2 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/40"
   />
+
+  {searchResults.length > 0 && (
+    <div className="absolute w-full mt-2 bg-white/20 backdrop-blur-xl border border-white/30 rounded-xl overflow-hidden z-50">
+      {searchResults.map((note) => (
+        <div
+          key={note._id}
+          onClick={() => handleSearchClick(note)}
+          className="px-4 py-2 cursor-pointer hover:bg-white/30 transition text-white"
+        >
+          <p className="font-semibold text-gray-800">
+            {note.title || "Untitled"}
+          </p>
+          <p className="text-sm text-gray-600 truncate">
+            {note.content}
+          </p>
+        </div>
+      ))}
+    </div>
+  )}
 </div>
 
         {/* LOADING */}
@@ -265,8 +330,9 @@ const handleCreateNote = async () => {
           y: e.clientY - note.y,
         });
       }}
-      className="absolute bg-white/20 backdrop-blur-lg border border-white/20 p-4 rounded-xl text-white cursor-grab active:cursor-grabbing select-none"
-      style={{
+      className={`absolute bg-white/20 backdrop-blur-lg border border-white/20 p-4 rounded-xl text-white cursor-grab active:cursor-grabbing select-none
+        ${highlightedNote === note._id ? "animate-bounce" : ""}
+      `}      style={{
         left: note.x,
         top: note.y,
         width: "250px",
